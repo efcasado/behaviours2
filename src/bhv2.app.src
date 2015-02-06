@@ -1,0 +1,11 @@
+%% -*- mode: erlang -*-
+{application, bhv2,
+ [
+  {description, "Erlang behaviours on steroids."},
+  {vsn, "0.1"},
+  {modules,
+   [
+    bhv2_pt,
+    bhv2_gen_server_defaults
+   ]}
+ ]}.
