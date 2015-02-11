@@ -71,31 +71,35 @@ callbacks(Behaviour)
 
 default_callbacks(Callbacks, Behaviour) ->
     DefaultsModule = defaults_module(Behaviour),
-    lists:zf(fun({F, A} = Callback) ->
-                     try
-                         case meta:function(F, A, DefaultsModule) of
-                             {Function, _} ->
-                                 {true, {Callback, Function}};
-                             {Function, _, _, _} ->
-                                 {true, {Callback, Function}}
-                         end
-                     catch
-                         _:_ -> false
-                     end
-             end,
-             Callbacks).
+    lists:zf(
+      fun({F, A} = Callback) ->
+              try
+                  Function =
+                      meta:function(F, A, DefaultsModule, [all, abstract]),
+                  {true, {Callback, Function}}
+              catch
+                  _:_ -> false
+              end
+      end,
+      Callbacks).
 
 inject_callbacks([], Forms) ->
     Forms;
-inject_callbacks([{{F, A}, Impl}| Callbacks], Forms) ->
+inject_callbacks([{{F, A}, Callback}| Callbacks], Forms) ->
     case meta:has_function(F, A, Forms) of
         true ->
             inject_callbacks(Callbacks, Forms);
         false ->
-            Forms1 = meta:add_function(Impl, true, Forms),
-            inject_callbacks(Callbacks, Forms1)
+            {{function, _, Name, Arity, _}, _, _} = Callback,
+            Forms1 = meta:add_forms(prepare_callback(Callback), Forms),
+            Forms2 = meta:export_function(Name, Arity, Forms1),
+            inject_callbacks(Callbacks, Forms2)
     end.
 
+prepare_callback({Function, Spec = undefined, Deps}) ->
+    [Function| Deps];
+prepare_callback({Function, Spec, Deps}) ->
+    [Function, Spec| Deps].
 
 defaults_module(gen_server) ->
     bhv2_gen_server_defaults;
