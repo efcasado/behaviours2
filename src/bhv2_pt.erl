@@ -91,15 +91,40 @@ inject_callbacks([{{F, A}, Callback}| Callbacks], Forms) ->
             inject_callbacks(Callbacks, Forms);
         false ->
             {{function, _, Name, Arity, _}, _, _} = Callback,
-            Forms1 = meta:add_forms(prepare_callback(Callback), Forms),
+            Forms1 = meta:add_forms(prepare_callback(Callback, Forms), Forms),
             Forms2 = meta:export_function(Name, Arity, Forms1),
             inject_callbacks(Callbacks, Forms2)
     end.
 
-prepare_callback({Function, Spec = undefined, Deps}) ->
-    [Function| Deps];
-prepare_callback({Function, Spec, Deps}) ->
-    [Function, Spec| Deps].
+prepare_callback({Function, _Spec = undefined, Deps}, Forms) ->
+    [Function| filter_out_duplicates(Deps, Forms)];
+prepare_callback({Function, Spec, Deps}, Forms) ->
+    [Function, Spec| filter_out_duplicates(Deps, Forms)].
+
+%% Filter out duplicated forms
+filter_out_duplicates(Deps, Forms) ->
+    '_filter_out_duplicates'(Deps, [], Forms).
+
+'_filter_out_duplicates'([], Acc, _Forms) ->
+    lists:reverse(Acc);
+'_filter_out_duplicates'([D = {attribute, _, record, {Record, _}}| Ds],
+                         Acc, Forms) ->
+    Acc1 = case meta:has_record(Record, Forms) of
+               true ->
+                   Acc;
+               false ->
+                   [D| Acc]
+           end,
+    '_filter_out_duplicates'(Ds, Acc1, Forms);
+'_filter_out_duplicates'([D = {attribute, _, type, {Name, _, Args}}| Ds],
+                         Acc, Forms) ->
+    Acc1 = case meta:has_type(Name, length(Args), Forms) of
+               true ->
+                   Acc;
+               false ->
+                   [D| Acc]
+           end,
+    '_filter_out_duplicates'(Ds, Acc1, Forms).
 
 defaults_module(gen_server) ->
     bhv2_gen_server_defaults;
