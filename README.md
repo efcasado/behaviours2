@@ -89,4 +89,4 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 ```
 
-Quite a significant difference. Don;t you think?
+Quite a significant difference. Don't you think?
