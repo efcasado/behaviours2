@@ -34,23 +34,73 @@
 %%%========================================================================
 -module(bhv2_gen_server_defaults).
 
+%% Avoid 'unused function' warnings
 -compile([export_all]).
 
-init([]) ->
-    {ok, undefined}.
 
+%% ========================================================================
+%%  Record definitions
+%% ========================================================================
+
+-record(state, {}).
+
+%% ========================================================================
+%%  Type definitions
+%% ========================================================================
+
+-type state() :: #state{}.
+
+
+%% ========================================================================
+%%  gen_server's callbacks
+%% ========================================================================
+
+-spec init(Args :: []) ->
+          {'ok', state()} |
+          {'ok', state(), timeout()} |
+          'ignore' |
+          {'stop', Reason :: term()}.
+init([]) ->
+    {ok, #state{}}.
+
+-spec handle_call(Request :: term(),
+                  From :: {pid(), Tag :: term()},
+                  State :: state()) ->
+          {'reply', Reply :: term(), state()} |
+          {'reply', Reply :: term(), state(), timeout()} |
+          {'noreply', state()} |
+          {'noreply', state(), timeout()} |
+          {'stop', Reason :: term(), Reply :: term(), state()} |
+          {'stop', Reason :: term(), state()}.
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
 
+-spec handle_cast(Msg :: term(),
+                  State :: state()) ->
+          {'noreply', state()} |
+          {'noreply', state(), timeout()} |
+          {'stop', Reason :: term(), state()}.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+-spec handle_info(Info :: term(),
+                  State :: state()) ->
+          {'noreply', state()} |
+          {'noreply', state(), timeout()} |
+          {'stop', Reason :: term(), state()}.
 handle_info(_Info, State) ->
     {noreply, State}.
 
+-spec terminate(Reason :: term(),
+                State :: state()) ->
+          any().
 terminate(_Reason, _State) ->
     ok.
 
+-spec code_change(OldVsn :: term() | {down, Vsn :: term()},
+                  State :: state(),
+                  Extra :: term()) ->
+          {'ok', NewState :: state()}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
