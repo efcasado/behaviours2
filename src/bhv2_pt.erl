@@ -68,7 +68,15 @@ callbacks(Behaviours) ->
     lists:flatmap(fun(B) -> meta:callbacks(B) end, Behaviours).
 
 export_callbacks(Callbacks, Forms) ->
-    lists:foldl(fun({F, A}, Forms1) -> meta:export_function(F, A, Forms1) end,
+    lists:foldl(fun({F, A}, Forms1) ->
+                        %% To avoid 'function X already exported' warnings
+                        case meta:is_function_exported(F, A, Forms1) of
+                            true ->
+                                Forms1;
+                            false ->
+                                meta:export_function(F, A, Forms1)
+                        end
+                end,
                 Forms,
                 Callbacks).
 
