@@ -16,6 +16,7 @@ a custom implementation.
 ```erlang
 -module(my_awesome_behaviour).
 
+%% To avoid problems when using `warnings_as_errors`
 -export([export_all]).
 
 -type t1() :: any().
