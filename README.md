@@ -38,6 +38,8 @@ f3() ->
 ```erlang
 -module(my_awesome_module).
 
+-compile({parse_transform, bhvs2_pt}).
+
 -behaviour(my_awesome_behaviour).
 
 f2() ->
