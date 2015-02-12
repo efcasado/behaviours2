@@ -58,6 +58,9 @@ my_awesome_module:f3().
 % => custom_f2.
 ```
 
+Note that `f1` and `f3` were automatically injected into `my_awesome_module`. Note as well that no
+explicit exports for the injected callback functions nor the provided one were required.
+
 ##### gen_server (echo server)
 
 The code snippet below illustrates how much effort it would take to
