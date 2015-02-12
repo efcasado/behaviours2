@@ -43,67 +43,85 @@
 %% ========================================================================
 
 parse_transform(Forms, _Opts) ->
-    Callbacks = all_default_callbacks(Forms),
-    inject_callbacks(Callbacks, Forms).
+    %% Get a list of all the behaviours used by the module being parsed
+    Behaviours = meta:behaviours(Forms),
+
+    %% Get a list of all the callbacks that must be implemented by the
+    %% module being parsed, according to the list of behaviours used
+    %% by the module.
+    Callbacks = callbacks(Behaviours),
+
+    %% Automatically export all callbacks
+    Forms1 = export_callbacks(Callbacks, Forms),
+
+    %% Get the default implementations of the required callback functions
+    Defaults = defaults(Behaviours),
+
+    inject_defaults(Defaults, Forms1).
 
 
 %% ========================================================================
 %%  Local functions
 %% ========================================================================
 
-all_default_callbacks(Forms) ->
-    lists:flatmap(fun({attribute, _, behaviour, Behaviour})
-                        when is_atom(Behaviour) ->
-                          Callbacks = callbacks(Behaviour),
-                          default_callbacks(Callbacks, Behaviour);
-                     (_) ->
-                          []
+callbacks(Behaviours) ->
+    lists:flatmap(fun(B) -> meta:callbacks(B) end, Behaviours).
+
+export_callbacks(Callbacks, Forms) ->
+    lists:foldl(fun({F, A}, Forms1) -> meta:export_function(F, A, Forms1) end,
+                Forms,
+                Callbacks).
+
+%%-------------------------------------------------------------------------
+%% @doc
+%% Return the default implementations of all the callbacks defined by the
+%% specified behaviours.
+%%
+%% The returned abstract code is not limited to the callback function only,
+%% but it also includes the abstract code of all record, type and function
+%% specifications required by the callback function.
+%% @end
+%%-------------------------------------------------------------------------
+defaults(Behaviours) ->
+    lists:flatmap(fun(B) ->
+                          %% Module where the default implementations are
+                          DefaultsModule = defaults_module(B),
+                          %% All callbacks required by the behaviour
+                          Callbacks = meta:callbacks(B),
+                          %% Return only those callbacks there is a default
+                          %% implementation for
+                          defaults(Callbacks, DefaultsModule)
                   end,
-                  Forms).
+                  Behaviours).
 
-callbacks(Behaviour)
-  when is_atom(Behaviour) ->
-    BehaviourForms = forms:read(Behaviour),
-    lists:zf(fun({attribute, _, callback, {Callback, _}}) -> {true, Callback};
-                (_) -> false
-             end,
-             BehaviourForms).
-
-default_callbacks(Callbacks, Behaviour) ->
-    DefaultsModule = defaults_module(Behaviour),
+defaults(Callbacks, DefaultsModule) ->
     lists:zf(
-      fun({F, A} = Callback) ->
+      fun({F, A}) ->
               try
-                  Function =
-                      meta:function(F, A, DefaultsModule, [all, abstract]),
-                  {true, {Callback, Function}}
+                  Forms = meta:function(F, A, DefaultsModule, [all, abstract]),
+                  {true, Forms}
               catch
                   _:_ -> false
               end
       end,
       Callbacks).
 
-inject_callbacks([], Forms) ->
-    Forms;
-inject_callbacks([{{F, A}, Callback}| Callbacks], Forms) ->
-    case meta:has_function(F, A, Forms) of
-        true ->
-            inject_callbacks(Callbacks, Forms);
-        false ->
-            {{function, _, Name, Arity, _}, _, _} = Callback,
-            Forms1 = meta:add_forms(prepare_callback(Callback, Forms), Forms),
-            Forms2 = meta:export_function(Name, Arity, Forms1),
-            inject_callbacks(Callbacks, Forms2)
-    end.
+inject_defaults([], ModuleForms) ->
+    ModuleForms;
+inject_defaults([CallbackDefaults| Callbacks], ModuleForms) ->
+    Forms = prepare_callback_defaults(CallbackDefaults, ModuleForms),
+    ModuleForms1 = meta:add_forms(Forms, ModuleForms),
+    inject_defaults(Callbacks, ModuleForms1).
 
-prepare_callback({Function, _Spec = undefined, Deps}, Forms) ->
-    [Function| filter_out_duplicates(Deps, Forms)];
-prepare_callback({Function, Spec, Deps}, Forms) ->
-    [Function, Spec| filter_out_duplicates(Deps, Forms)].
+prepare_callback_defaults({Function, _Spec = undefined, Deps}, ModuleForms) ->
+    filter_out_duplicates([Function| Deps], ModuleForms);
+prepare_callback_defaults({Function, Spec, Deps}, ModuleForms) ->
+    filter_out_duplicates([Function, Spec| Deps], ModuleForms).
 
-%% Filter out duplicated forms
-filter_out_duplicates(Deps, Forms) ->
-    '_filter_out_duplicates'(Deps, [], Forms).
+%% Filter out those forms that have already been provided by the user in
+%% the module being parsed
+filter_out_duplicates(Forms, ModuleForms) ->
+    '_filter_out_duplicates'(Forms, [], ModuleForms).
 
 '_filter_out_duplicates'([], Acc, _Forms) ->
     lists:reverse(Acc);
@@ -124,7 +142,27 @@ filter_out_duplicates(Deps, Forms) ->
                false ->
                    [D| Acc]
            end,
+    '_filter_out_duplicates'(Ds, Acc1, Forms);
+'_filter_out_duplicates'([D = {attribute, _, spec, {{Name, Arity}, _}}| Ds],
+                         Acc, Forms) ->
+    Acc1 = case meta:has_type(Name, Arity, Forms) of
+               true ->
+                   Acc;
+               false ->
+                   [D| Acc]
+           end,
+    '_filter_out_duplicates'(Ds, Acc1, Forms);
+'_filter_out_duplicates'([D = {function, _, Name, Arity, _}| Ds],
+                         Acc, Forms) ->
+    Acc1 = case meta:has_function(Name, Arity, Forms) of
+               true ->
+                   Acc;
+               false ->
+                   [D| Acc]
+           end,
     '_filter_out_duplicates'(Ds, Acc1, Forms).
+
+
 
 defaults_module(gen_server) ->
     bhv2_gen_server_defaults;
