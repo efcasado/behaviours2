@@ -3,7 +3,58 @@ behaviours2
 
 Erlang behaviours on steroids.
 
+
+`behaviours2` allows developers to provide sound defaults for a behaviour's
+callbacks. `behaviours2`'s parse transform will automatically inject a
+callback's default implementation unless the user overwrites it by providing
+a custom implementation.
+
 ### Examples
+
+##### Simple behaviour
+
+```erlang
+-module(my_awesome_behaviour).
+
+-export([export_all]).
+
+-type t1() :: any().
+-type t2() :: any().
+
+-callback f1() -> t1().
+-callback f2() -> t2().
+-callback f3() -> t2().
+
+f1() ->
+    'default_f1'.
+
+f2() ->
+    'default_f2'.
+    
+f3() ->
+    f2().
+```
+
+```erlang
+-module(my_awesome_module).
+
+-behaviour(my_awesome_behaviour).
+
+f2() ->
+  'custom_f2'.
+
+```
+
+```erlang
+my_awesome_module:f1().
+% => default_f1
+
+my_awesome_module:f2().
+% => custom_f2
+
+my_awesome_module:f3().
+% => custom_f2.
+```
 
 ##### gen_server (echo server)
 
