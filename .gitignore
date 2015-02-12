@@ -4,3 +4,4 @@ ebin
 *.beam
 logs
 deps
+.#*
